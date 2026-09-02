@@ -9,27 +9,29 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 
-public class StaticController implements HttpHandler {
+public class StaticFileHandler implements HttpHandler {
+
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        // Obtiene la ruta solicitada (ej. /static/trabajo_123.pdf)
         String requestPath = exchange.getRequestURI().getPath();
-        String filename = requestPath.replaceFirst("/static/", "");
 
-        // Busca el archivo directamente en la carpeta public
-        File file = new File("public", filename);
+        // Mapea la ruta web a la carpeta local de tu proyecto/contenedor
+        File file = new File("." + requestPath);
 
         if (file.exists() && !file.isDirectory()) {
-            String mimeType = Files.probeContentType(file.toPath());
-            if (mimeType == null) {
-                mimeType = "application/octet-stream";
+            // Detectar el tipo de contenido (Content-Type)
+            String contentType = Files.probeContentType(file.toPath());
+            if (contentType == null) {
+                contentType = "application/octet-stream";
             }
 
-            exchange.getResponseHeaders().set("Content-Type", mimeType);
+            exchange.getResponseHeaders().set("Content-Type", contentType);
             exchange.sendResponseHeaders(200, file.length());
 
             try (OutputStream os = exchange.getResponseBody();
                  FileInputStream fs = new FileInputStream(file)) {
-                byte[] buffer = new byte[8192];
+                byte[] buffer = new byte[1024];
                 int count;
                 while ((count = fs.read(buffer)) != -1) {
                     os.write(buffer, 0, count);
