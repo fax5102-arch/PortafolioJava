@@ -143,8 +143,8 @@ public class ViewHtml {
                 "        <div class=\"modal-content\">\n" +
                 "            <h3>Acceso Alumno</h3>\n" +
                 "            <form action=\"/login\" method=\"POST\">\n" +
-                "                <input type=\"text\" name=\"usuario\" class=\"form-control\" placeholder=\"Usuario (admin)\" required>\n" +
-                "                <input type=\"password\" name=\"password\" class=\"form-control\" placeholder=\"Contraseña (1234)\" required>\n" +
+                "                <input type=\"text\" name=\"usuario\" class=\"form-control\" placeholder=\"Usuario\" required>\n" +
+                "                <input type=\"password\" name=\"password\" class=\"form-control\" placeholder=\"Contraseña\" required>\n" +
                 "                <button type=\"submit\" class=\"btn-submit\">Ingresar</button>\n" +
                 "            </form>\n" +
                 "            <button onclick=\"cerrarModal()\" style=\"margin-top: 0.8rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;\">Cancelar</button>\n" +
