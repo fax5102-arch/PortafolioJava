@@ -2,6 +2,9 @@ package com.portafolio.view;
 
 import com.portafolio.model.Evidencia;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.stream.Collectors;
 
 public class ViewHtml {
 
@@ -10,10 +13,28 @@ public class ViewHtml {
         if (listaEvidencias.isEmpty()) {
             evidenciasHtml.append("<p style=\"font-size: 0.88rem;\">No hay evidencias publicadas aún.</p>");
         } else {
-            for (Evidencia ev : listaEvidencias) {
-                String pdfBtn = (ev.getPdfUrl() != null && !ev.getPdfUrl().isEmpty())
-                        ? String.format("<a href=\"%s\" target=\"_blank\" class=\"btn-pdf\">Ver Documento PDF ›</a>", escapeHtml(ev.getPdfUrl()))
-                        : "<span style=\"font-size: 0.78rem; color: var(--text-muted); font-style: italic;\">Sin documento adjunto</span>";
+            // Agrupamos las evidencias por semana manteniendo el orden de inserción
+            Map<String, List<Evidencia>> evidenciasPorSemana = listaEvidencias.stream()
+                    .collect(Collectors.groupingBy(Evidencia::getSemana, LinkedHashMap::new, Collectors.toList()));
+
+            for (Map.Entry<String, List<Evidencia>> entry : evidenciasPorSemana.entrySet()) {
+                String semana = entry.getKey();
+                List<Evidencia> trabajos = entry.getValue();
+
+                StringBuilder trabajosHtml = new StringBuilder();
+                for (Evidencia ev : trabajos) {
+                    String pdfBtn = (ev.getPdfUrl() != null && !ev.getPdfUrl().isEmpty())
+                            ? String.format("<a href=\"%s\" target=\"_blank\" class=\"btn-pdf\">Ver Documento PDF ›</a>", escapeHtml(ev.getPdfUrl()))
+                            : "<span style=\"font-size: 0.78rem; color: var(--text-muted); font-style: italic;\">Sin documento adjunto</span>";
+
+                    trabajosHtml.append(String.format(
+                            "<div style=\"background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.9rem; margin-bottom: 0.8rem;\">" +
+                                    "<p style=\"font-size: 0.88rem; margin-bottom: 0.6rem; color: var(--text-white);\">%s</p>" +
+                                    "%s" +
+                                    "</div>",
+                            escapeHtml(ev.getDescripcion()), pdfBtn
+                    ));
+                }
 
                 String htmlItem = String.format(
                         "<details style=\"background: var(--inner-card-bg); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 0.8rem; overflow: hidden; transition: border-color 0.3s ease;\">" +
@@ -22,11 +43,10 @@ public class ViewHtml {
                                 "<span style=\"font-size: 0.75rem; color: var(--accent-cyan); font-family: monospace;\">Ver detalles ▼</span>" +
                                 "</summary>" +
                                 "<div style=\"padding: 1rem 1.2rem; border-top: 1px solid var(--border-color);\">" +
-                                "<p style=\"font-size: 0.88rem; margin-bottom: 0.8rem;\">%s</p>" +
                                 "%s" +
                                 "</div>" +
                                 "</details>",
-                        escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()), pdfBtn
+                        escapeHtml(semana), trabajosHtml.toString()
                 );
                 evidenciasHtml.append(htmlItem);
             }
@@ -80,7 +100,7 @@ public class ViewHtml {
                 "        .tech-box-title { color: var(--accent-cyan); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; }\n" +
                 "        .badges-container { display: flex; flex-wrap: wrap; gap: 0.5rem; }\n" +
                 "        .badge-item { background: rgba(255, 255, 255, 0.05); color: var(--text-white); border: 1px solid var(--border-color); padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; }\n" +
-                "        .btn-pdf { display: inline-flex; align-items: center; gap: 0.5rem; background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%); color: #fff; font-weight: 600; padding: 0.6rem 1.2rem; border-radius: 8px; text-decoration: none; font-size: 0.85rem; margin-top: 0.4rem; }\n" +
+                "        .btn-pdf { display: inline-flex; align-items: center; gap: 0.5rem; background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%); color: #fff; font-weight: 600; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-size: 0.8rem; margin-top: 0.2rem; }\n" +
                 "        details[open] summary { border-bottom: 1px solid var(--border-color); background: rgba(0, 242, 254, 0.03); }\n" +
                 "        .modal { display: none; position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; backdrop-filter: blur(4px); }\n" +
                 "        .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); padding: 2rem; border-radius: 16px; width: 320px; text-align: center; animation: scaleUp 0.3s forwards; }\n" +
