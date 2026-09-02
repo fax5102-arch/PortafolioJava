@@ -224,63 +224,99 @@ public class CPanelController implements HttpHandler {
 
     private static String extractField(byte[] data, String boundary, String fieldName) {
         try {
-            String text = new String(data, StandardCharsets.ISO_8859_1);
             String token = "name=\"" + fieldName + "\"";
-            int startHeader = text.indexOf(token);
+            byte[] tokenBytes = token.getBytes(StandardCharsets.UTF_8);
+            int startHeader = indexOfBytes(data, tokenBytes, 0);
             if (startHeader == -1) return "";
 
-            int startData = text.indexOf("\n\n", startHeader);
-            if (startData == -1) startData = text.indexOf("\r\n\r\n", startHeader);
+            int startData = findHeaderEnd(data, startHeader);
             if (startData == -1) return "";
 
-            startData = text.indexOf(startData == text.indexOf("\r\n\r\n", startHeader) ? "\r\n\r\n" : "\n\n", startHeader) + (text.contains("\r\n") ? 4 : 2);
-
-            int endData = text.indexOf("\n--" + boundary, startData);
-            if (endData == -1) endData = text.indexOf("\r\n--" + boundary, startData);
+            byte[] boundaryBytes = ("\r\n--" + boundary).getBytes(StandardCharsets.UTF_8);
+            int endData = indexOfBytes(data, boundaryBytes, startData);
+            if (endData == -1) {
+                boundaryBytes = ("\n--" + boundary).getBytes(StandardCharsets.UTF_8);
+                endData = indexOfBytes(data, boundaryBytes, startData);
+            }
             if (endData == -1) endData = data.length;
 
-            byte campoBytes[] = Arrays.copyOfRange(data, startData, endData);
+            byte[] campoBytes = Arrays.copyOfRange(data, startData, endData);
             String val = new String(campoBytes, StandardCharsets.UTF_8).trim();
-            // Limpiar posible salto de línea final sobrante
+
             if (val.endsWith("\r")) val = val.substring(0, val.length() - 1);
+            if (val.endsWith("\n")) val = val.substring(0, val.length() - 1);
+
             return val;
-        } catch (Exception e) { return ""; }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
+    private static int findHeaderEnd(byte[] data, int startFrom) {
+        for (int i = startFrom; i < data.length - 3; i++) {
+            if (data[i] == '\r' && data[i+1] == '\n' && data[i+2] == '\r' && data[i+3] == '\n') {
+                return i + 4;
+            }
+            if (data[i] == '\n' && data[i+1] == '\n') {
+                return i + 2;
+            }
+        }
+        return -1;
+    }
+
+    private static int indexOfBytes(byte[] outer, byte[] target, int start) {
+        for (int i = start; i <= outer.length - target.length; i++) {
+            boolean found = true;
+            for (int j = 0; j < target.length; j++) {
+                if (outer[i + j] != target[j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) return i;
+        }
+        return -1;
     }
 
     private static boolean hasFileAttached(byte[] data, String boundary, String fieldName) {
         try {
-            String text = new String(data, StandardCharsets.ISO_8859_1);
             String token = "name=\"" + fieldName + "\"; filename=";
-            int startHeader = text.indexOf(token);
+            byte[] tokenBytes = token.getBytes(StandardCharsets.UTF_8);
+            int startHeader = indexOfBytes(data, tokenBytes, 0);
             if (startHeader == -1) return false;
 
-            int startData = text.indexOf("\r\n\r\n", startHeader);
-            if (startData == -1) startData = text.indexOf("\n\n", startHeader);
+            int startData = findHeaderEnd(data, startHeader);
             if (startData == -1) return false;
-            startData += text.contains("\r\n") ? 4 : 2;
 
-            int endData = text.indexOf("\r\n--" + boundary, startData);
-            if (endData == -1) endData = text.indexOf("\n--" + boundary, startData);
+            byte[] boundaryBytes = ("\r\n--" + boundary).getBytes(StandardCharsets.UTF_8);
+            int endData = indexOfBytes(data, boundaryBytes, startData);
+            if (endData == -1) {
+                boundaryBytes = ("\n--" + boundary).getBytes(StandardCharsets.UTF_8);
+                endData = indexOfBytes(data, boundaryBytes, startData);
+            }
             if (endData == -1) return false;
 
-            return (endData - startData) > 10; // Si pesa más de 10 bytes asumimos que hay archivo real
+            return (endData - startData) > 10;
         } catch (Exception e) { return false; }
     }
 
     private static void saveFileField(byte[] data, String boundary, String fieldName, String outputPath) {
         try {
-            String text = new String(data, StandardCharsets.ISO_8859_1);
             String token = "name=\"" + fieldName + "\"; filename=";
-            int startHeader = text.indexOf(token);
+            byte[] tokenBytes = token.getBytes(StandardCharsets.UTF_8);
+            int startHeader = indexOfBytes(data, tokenBytes, 0);
             if (startHeader == -1) return;
 
-            int startData = text.indexOf("\r\n\r\n", startHeader);
-            if (startData == -1) startData = text.indexOf("\n\n", startHeader);
+            int startData = findHeaderEnd(data, startHeader);
             if (startData == -1) return;
-            startData += text.contains("\r\n") ? 4 : 2;
 
-            int endData = text.indexOf("\r\n--" + boundary, startData);
-            if (endData == -1) endData = text.indexOf("\n--" + boundary, startData);
+            byte[] boundaryBytes = ("\r\n--" + boundary).getBytes(StandardCharsets.UTF_8);
+            int endData = indexOfBytes(data, boundaryBytes, startData);
+            if (endData == -1) {
+                boundaryBytes = ("\n--" + boundary).getBytes(StandardCharsets.UTF_8);
+                endData = indexOfBytes(data, boundaryBytes, startData);
+            }
             if (endData == -1) return;
 
             if ((endData - startData) > 0) {
