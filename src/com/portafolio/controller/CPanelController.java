@@ -51,6 +51,7 @@ public class CPanelController implements HttpHandler {
     public static class SubirTrabajoHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            System.out.println(">>> Recibida peticion POST en /subir-trabajo");
             if (!AuthController.esAutenticado(exchange) || !"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 exchange.getResponseHeaders().set("Location", "/");
                 exchange.sendResponseHeaders(302, -1);
@@ -65,10 +66,16 @@ public class CPanelController implements HttpHandler {
                 String descripcion = extractField(data, boundary, "descripcion");
                 String pdfUrl = "";
 
+                System.out.println("Semana recibida: " + semana);
+
                 if (hasFileAttached(data, boundary, "pdfFile")) {
                     String filename = "trabajo_" + System.currentTimeMillis() + ".pdf";
+                    File pubDir = new File("public");
+                    if (!pubDir.exists()) pubDir.mkdirs();
+
                     saveFileField(data, boundary, "pdfFile", "public/" + filename);
                     pdfUrl = "/static/" + filename;
+                    System.out.println("Archivo PDF guardado como: " + filename);
                 }
 
                 if (semana != null && !semana.isEmpty()) {
@@ -79,10 +86,13 @@ public class CPanelController implements HttpHandler {
                         pstmt.setString(2, descripcion);
                         pstmt.setString(3, pdfUrl);
                         pstmt.executeUpdate();
+                        System.out.println("Evidencia insertada con éxito en SQLite.");
                     } catch (SQLException e) {
                         e.printStackTrace();
                     }
                 }
+            } else {
+                System.out.println(">>> Error: No se pudo detectar el boundary en la peticion.");
             }
 
             exchange.getResponseHeaders().set("Location", "/cpanel");
@@ -129,6 +139,9 @@ public class CPanelController implements HttpHandler {
                             if (oldFile.exists()) oldFile.delete();
                         }
                         String filename = "trabajo_" + System.currentTimeMillis() + ".pdf";
+                        File pubDir = new File("public");
+                        if (!pubDir.exists()) pubDir.mkdirs();
+
                         saveFileField(data, boundary, "pdfFile", "public/" + filename);
                         finalPdfUrl = "/static/" + filename;
                     }
@@ -204,20 +217,33 @@ public class CPanelController implements HttpHandler {
     private static String extractBoundary(HttpExchange exchange) {
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
         if (contentType != null && contentType.contains("boundary=")) {
-            return contentType.substring(contentType.indexOf("boundary=") + 9);
+            return contentType.substring(contentType.indexOf("boundary=") + 9).trim();
         }
         return null;
     }
 
     private static String extractField(byte[] data, String boundary, String fieldName) {
         try {
-            String text = new String(data, StandardCharsets.UTF_8);
-            String token = "name=\"" + fieldName + "\"\r\n\r\n";
-            int start = text.indexOf(token);
-            if (start == -1) return "";
-            start += token.length();
-            int end = text.indexOf("\r\n--" + boundary, start);
-            return text.substring(start, end).trim();
+            String text = new String(data, StandardCharsets.ISO_8859_1);
+            String token = "name=\"" + fieldName + "\"";
+            int startHeader = text.indexOf(token);
+            if (startHeader == -1) return "";
+
+            int startData = text.indexOf("\n\n", startHeader);
+            if (startData == -1) startData = text.indexOf("\r\n\r\n", startHeader);
+            if (startData == -1) return "";
+
+            startData = text.indexOf(startData == text.indexOf("\r\n\r\n", startHeader) ? "\r\n\r\n" : "\n\n", startHeader) + (text.contains("\r\n") ? 4 : 2);
+
+            int endData = text.indexOf("\n--" + boundary, startData);
+            if (endData == -1) endData = text.indexOf("\r\n--" + boundary, startData);
+            if (endData == -1) endData = data.length;
+
+            byte campoBytes[] = Arrays.copyOfRange(data, startData, endData);
+            String val = new String(campoBytes, StandardCharsets.UTF_8).trim();
+            // Limpiar posible salto de línea final sobrante
+            if (val.endsWith("\r")) val = val.substring(0, val.length() - 1);
+            return val;
         } catch (Exception e) { return ""; }
     }
 
@@ -227,9 +253,17 @@ public class CPanelController implements HttpHandler {
             String token = "name=\"" + fieldName + "\"; filename=";
             int startHeader = text.indexOf(token);
             if (startHeader == -1) return false;
-            int startData = text.indexOf("\r\n\r\n", startHeader) + 4;
+
+            int startData = text.indexOf("\r\n\r\n", startHeader);
+            if (startData == -1) startData = text.indexOf("\n\n", startHeader);
+            if (startData == -1) return false;
+            startData += text.contains("\r\n") ? 4 : 2;
+
             int endData = text.indexOf("\r\n--" + boundary, startData);
-            return (endData - startData) > 0;
+            if (endData == -1) endData = text.indexOf("\n--" + boundary, startData);
+            if (endData == -1) return false;
+
+            return (endData - startData) > 10; // Si pesa más de 10 bytes asumimos que hay archivo real
         } catch (Exception e) { return false; }
     }
 
@@ -239,8 +273,16 @@ public class CPanelController implements HttpHandler {
             String token = "name=\"" + fieldName + "\"; filename=";
             int startHeader = text.indexOf(token);
             if (startHeader == -1) return;
-            int startData = text.indexOf("\r\n\r\n", startHeader) + 4;
+
+            int startData = text.indexOf("\r\n\r\n", startHeader);
+            if (startData == -1) startData = text.indexOf("\n\n", startHeader);
+            if (startData == -1) return;
+            startData += text.contains("\r\n") ? 4 : 2;
+
             int endData = text.indexOf("\r\n--" + boundary, startData);
+            if (endData == -1) endData = text.indexOf("\n--" + boundary, startData);
+            if (endData == -1) return;
+
             if ((endData - startData) > 0) {
                 byte[] fileBytes = Arrays.copyOfRange(data, startData, endData);
                 Files.write(new File(outputPath).toPath(), fileBytes);

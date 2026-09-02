@@ -43,7 +43,7 @@ public class AuthController {
                     }
                 }
 
-                if ("admin".equals(usuario) && "1234".equals(password)) {
+                if ("".equals(usuario) && "".equals(password)) {
                     String token = SessionManager.crearSesion(usuario);
                     exchange.getResponseHeaders().add("Set-Cookie", "SESION_PORTAFOLIO=" + token + "; Path=/; HttpOnly");
                     exchange.getResponseHeaders().set("Location", "/cpanel");
