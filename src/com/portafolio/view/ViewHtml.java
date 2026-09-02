@@ -11,10 +11,6 @@ public class ViewHtml {
             evidenciasHtml.append("<p style=\"font-size: 0.88rem;\">No hay evidencias publicadas aún.</p>");
         } else {
             for (Evidencia ev : listaEvidencias) {
-                if ("Semana 2".equalsIgnoreCase(ev.getSemana())) {
-                    continue;
-                }
-
                 String pdfBtn = (ev.getPdfUrl() != null && !ev.getPdfUrl().isEmpty())
                         ? String.format("<a href=\"%s\" target=\"_blank\" class=\"btn-pdf\">Ver Documento PDF ›</a>", escapeHtml(ev.getPdfUrl()))
                         : "<span style=\"font-size: 0.78rem; color: var(--text-muted); font-style: italic;\">Sin documento adjunto</span>";
@@ -176,10 +172,6 @@ public class ViewHtml {
             listaAdmin.append("<p style=\"font-size: 0.88rem;\">No hay semanas registradas.</p>");
         } else {
             for (Evidencia ev : listaEvidencias) {
-                if ("Semana 2".equalsIgnoreCase(ev.getSemana())) {
-                    continue;
-                }
-
                 String adminItem = String.format(
                         "<details style=\"background: var(--inner-card-bg, #080d1a); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 0.8rem; overflow: hidden;\">" +
                                 "<summary style=\"padding: 0.8rem 1rem; cursor: pointer; color: var(--text-white); font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;\">" +
