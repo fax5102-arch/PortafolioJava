@@ -146,7 +146,8 @@ public class CPanelController implements HttpHandler {
                         finalPdfUrl = "/static/" + filename;
                     }
 
-                    String updateSql = "UPDATE evidencias SET semana = ?, descripcion = ?, pdf_url = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?";
+                    // Corrección aquí: se eliminó fecha_actualizacion = CURRENT_TIMESTAMP
+                    String updateSql = "UPDATE evidencias SET semana = ?, descripcion = ?, pdf_url = ? WHERE id = ?";
                     try (Connection conn = Database.getConnection();
                          PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
                         pstmt.setString(1, nuevaSemana);
