@@ -9,6 +9,12 @@ public class Database {
     private static final String URL = "jdbc:sqlite:portafolio.db";
 
     public static Connection getConnection() throws SQLException {
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            System.out.println("Error: No se encontró el driver de SQLite en el classpath: " + e.getMessage());
+        }
+
         Connection conn = DriverManager.getConnection(URL);
         inicializarBaseDatos(conn);
         return conn;

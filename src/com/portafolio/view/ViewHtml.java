@@ -13,7 +13,6 @@ public class ViewHtml {
         if (listaEvidencias.isEmpty()) {
             evidenciasHtml.append("<p style=\"font-size: 0.88rem;\">No hay evidencias publicadas aún.</p>");
         } else {
-            // Agrupamos las evidencias por semana manteniendo el orden de inserción
             Map<String, List<Evidencia>> evidenciasPorSemana = listaEvidencias.stream()
                     .collect(Collectors.groupingBy(Evidencia::getSemana, LinkedHashMap::new, Collectors.toList()));
 
@@ -187,28 +186,28 @@ public class ViewHtml {
     }
 
     public static String renderCPanel(List<Evidencia> listaEvidencias) {
+        int totalSemanas = (listaEvidencias != null) ? (int) listaEvidencias.stream().map(Evidencia::getSemana).distinct().count() : 0;
+        int totalTareas = (listaEvidencias != null) ? listaEvidencias.size() : 0;
+
         StringBuilder listaAdmin = new StringBuilder();
-        if (listaEvidencias.isEmpty()) {
-            listaAdmin.append("<p style=\"font-size: 0.88rem;\">No hay semanas registradas.</p>");
+        if (listaEvidencias == null || listaEvidencias.isEmpty()) {
+            listaAdmin.append("<p style=\"font-size: 0.88rem; color: var(--text-muted);\">No hay semanas registradas.</p>");
         } else {
             for (Evidencia ev : listaEvidencias) {
                 String adminItem = String.format(
-                        "<details style=\"background: var(--inner-card-bg, #080d1a); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 0.8rem; overflow: hidden;\">" +
-                                "<summary style=\"padding: 0.8rem 1rem; cursor: pointer; color: var(--text-white); font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;\">" +
-                                "<span>📌 %s</span>" +
-                                "<span style=\"font-size: 0.75rem; color: var(--accent-cyan);\">Gestionar ▼</span>" +
-                                "</summary>" +
-                                "<div style=\"padding: 1rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;\">" +
-                                "<p style=\"font-size: 0.85rem; max-width: 450px;\">%s</p>" +
-                                "<div style=\"display: flex; gap: 0.4rem;\">" +
-                                "<button onclick=\"abrirEditar('%s', '%s', '%s')\" style=\"background: rgba(0, 242, 254, 0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem;\">Editar</button>" +
-                                "<form action=\"/eliminar-trabajo\" method=\"POST\" style=\"display:inline;\">" +
-                                "<input type=\"hidden\" name=\"id\" value=\"%s\">" +
-                                "<button type=\"submit\" style=\"background: rgba(255, 77, 77, 0.1); border: 1px solid #ff4d4d; color: #ff4d4d; padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem;\">Eliminar</button>" +
-                                "</form>" +
-                                "</div>" +
-                                "</div>" +
-                                "</details>",
+                        "<div style=\"background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;\">" +
+                                "   <div>" +
+                                "       <span style=\"color: var(--accent-cyan); font-weight: 600; font-size: 0.88rem;\">📌 %s</span>" +
+                                "       <p style=\"font-size: 0.85rem; color: var(--text-white); margin-top: 0.3rem;\">%s</p>" +
+                                "   </div>" +
+                                "   <div style=\"display: flex; gap: 0.5rem;\">" +
+                                "       <button onclick=\"abrirEditar('%s', '%s', '%s')\" style=\"background: rgba(0, 242, 254, 0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 0.35rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;\">Editar</button>" +
+                                "       <form action=\"/eliminar-trabajo\" method=\"POST\" style=\"display:inline;\">" +
+                                "           <input type=\"hidden\" name=\"id\" value=\"%s\">" +
+                                "           <button type=\"submit\" style=\"background: rgba(255, 77, 77, 0.1); border: 1px solid #ff4d4d; color: #ff4d4d; padding: 0.35rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;\">Eliminar</button>" +
+                                "       </form>" +
+                                "   </div>" +
+                                "</div>",
                         escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()), ev.getId(), escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()), ev.getId()
                 );
                 listaAdmin.append(adminItem);
@@ -219,40 +218,85 @@ public class ViewHtml {
                 "<html lang=\"es\">\n" +
                 "<head>\n" +
                 "    <meta charset=\"UTF-8\">\n" +
-                "    <title>cPanel - Gestión de Semanas</title>\n" +
+                "    <title>Panel de Control - Console Admin</title>\n" +
                 "    <style>\n" +
                 "        :root { --bg-main: #060913; --card-bg: #0d1322; --border-color: #172033; --accent-cyan: #00f2fe; --text-white: #ffffff; --text-muted: #94a3b8; }\n" +
                 "        * { box-sizing: border-box; margin: 0; padding: 0; }\n" +
-                "        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }\n" +
+                "        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }\n" +
                 "        @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }\n" +
-                "        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-main); color: var(--text-muted); padding: 2rem; display: flex; justify-content: center; animation: fadeIn 0.5s ease-out; }\n" +
-                "        .container { max-width: 800px; width: 100%; }\n" +
-                "        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; }\n" +
-                "        .header h1 { color: var(--text-white); font-size: 1.5rem; }\n" +
-                "        .btn-out { color: #ff4d4d; text-decoration: none; border: 1px solid #ff4d4d; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; }\n" +
-                "        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 2rem; margin-bottom: 1.5rem; }\n" +
-                "        .card h2 { color: var(--accent-cyan); font-size: 1.1rem; margin-bottom: 1.2rem; }\n" +
+                "        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-main); color: var(--text-muted); display: flex; min-height: 100vh; animation: fadeIn 0.4s ease-out; }\n" +
+                "        \n" +
+                "        /* Sidebar */\n" +
+                "        .sidebar { width: 260px; background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; position: fixed; height: 100vh; }\n" +
+                "        .sidebar-top { display: flex; flex-direction: column; gap: 1.5rem; }\n" +
+                "        .sidebar-brand { color: var(--text-white); font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; }\n" +
+                "        .sidebar-menu { display: flex; flex-direction: column; gap: 0.4rem; }\n" +
+                "        .menu-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 1rem; border-radius: 8px; color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; }\n" +
+                "        .menu-item.active, .menu-item:hover { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.2); }\n" +
+                "        .btn-logout { display: flex; align-items: center; gap: 0.6rem; color: #ff4d4d; text-decoration: none; font-size: 0.9rem; font-weight: 600; padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid rgba(255, 77, 77, 0.2); background: rgba(255, 77, 77, 0.05); }\n" +
+                "        \n" +
+                "        /* Main Dashboard */\n" +
+                "        .main-container { margin-left: 260px; flex: 1; padding: 2rem; max-width: calc(100vw - 260px); }\n" +
+                "        .page-title { color: var(--text-white); font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }\n" +
+                "        \n" +
+                "        /* Metrics Grid */\n" +
+                "        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }\n" +
+                "        .metric-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.2rem 1.5rem; }\n" +
+                "        .metric-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 0.4rem; }\n" +
+                "        .metric-value { color: var(--text-white); font-size: 1.8rem; font-weight: 700; }\n" +
+                "        \n" +
+                "        /* Cards / Sections */\n" +
+                "        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.8rem; margin-bottom: 1.5rem; }\n" +
+                "        .card-title { color: var(--text-white); font-size: 1.1rem; font-weight: 700; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }\n" +
+                "        \n" +
                 "        .form-group { margin-bottom: 1rem; }\n" +
-                "        .form-group label { display: block; color: var(--text-white); font-size: 0.85rem; margin-bottom: 0.4rem; }\n" +
-                "        .form-control { width: 100%; padding: 0.6rem; background: #080d1a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-white); outline: none; }\n" +
-                "        .btn-submit { background: var(--accent-cyan); color: #000; border: none; padding: 0.7rem 1.4rem; border-radius: 8px; font-weight: 700; cursor: pointer; }\n" +
-                "        .btn-back { display: inline-block; color: var(--text-white); text-decoration: none; margin-top: 1rem; font-size: 0.9rem; }\n" +
+                "        .form-group label { display: block; color: var(--text-white); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; }\n" +
+                "        .form-control { width: 100%; padding: 0.7rem 1rem; background: #080d1a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-white); outline: none; font-size: 0.9rem; }\n" +
+                "        .btn-submit { background: var(--accent-cyan); color: #000; border: none; padding: 0.7rem 1.4rem; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }\n" +
+                "        \n" +
+                "        /* Modal */\n" +
                 "        .modal { display: none; position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; backdrop-filter: blur(4px); }\n" +
-                "        .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); padding: 2rem; border-radius: 16px; width: 380px; animation: scaleUp 0.3s forwards; }\n" +
-                "        .modal-content h3 { color: var(--text-white); margin-bottom: 1rem; }\n" +
+                "        .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); padding: 2rem; border-radius: 16px; width: 400px; animation: scaleUp 0.3s forwards; }\n" +
+                "        .modal-content h3 { color: var(--text-white); margin-bottom: 1rem; font-size: 1.1rem; }\n" +
                 "    </style>\n" +
                 "</head>\n" +
                 "<body>\n" +
-                "    <div class=\"container\">\n" +
-                "        <div class=\"header\">\n" +
-                "            <h1>⚙️ cPanel del Alumno</h1>\n" +
-                "            <a href=\"/logout\" class=\"btn-out\">Cerrar Sesión</a>\n" +
+                "    <aside class=\"sidebar\">\n" +
+                "        <div class=\"sidebar-top\">\n" +
+                "            <div class=\"sidebar-brand\">🛡️ Console Admin</div>\n" +
+                "            <div class=\"sidebar-menu\">\n" +
+                "                <a href=\"/cpanel\" class=\"menu-item active\">📊 Dashboard</a>\n" +
+                "                <a href=\"/\" class=\"menu-item\">🌐 Ver Portafolio</a>\n" +
+                "            </div>\n" +
                 "        </div>\n" +
+                "        <div>\n" +
+                "            <a href=\"/logout\" class=\"btn-logout\">🚪 Cerrar Sesión</a>\n" +
+                "        </div>\n" +
+                "    </aside>\n" +
+                "\n" +
+                "    <div class=\"main-container\">\n" +
+                "        <h1 class=\"page-title\">Panel de Control</h1>\n" +
+                "        \n" +
+                "        <div class=\"metrics-grid\">\n" +
+                "            <div class=\"metric-card\">\n" +
+                "                <div class=\"metric-title\">Total Semanas</div>\n" +
+                "                <div class=\"metric-value\">" + totalSemanas + "</div>\n" +
+                "            </div>\n" +
+                "            <div class=\"metric-card\">\n" +
+                "                <div class=\"metric-title\">Semanas Completadas</div>\n" +
+                "                <div class=\"metric-value\">" + totalSemanas + "</div>\n" +
+                "            </div>\n" +
+                "            <div class=\"metric-card\">\n" +
+                "                <div class=\"metric-title\">Total Tareas Subidas</div>\n" +
+                "                <div class=\"metric-value\">" + totalTareas + "</div>\n" +
+                "            </div>\n" +
+                "        </div>\n" +
+                "\n" +
                 "        <div class=\"card\">\n" +
-                "            <h2>Crear Nueva Semana / Trabajo</h2>\n" +
+                "            <div class=\"card-title\">📝 Registrar Tarea Académica</div>\n" +
                 "            <form action=\"/subir-trabajo\" method=\"POST\" enctype=\"multipart/form-data\">\n" +
                 "                <div class=\"form-group\">\n" +
-                "                    <label>Título / Semana:</label>\n" +
+                "                    <label>Título / Semana Destino:</label>\n" +
                 "                    <input type=\"text\" name=\"semana\" class=\"form-control\" placeholder=\"Ej. Semana 3\" required>\n" +
                 "                </div>\n" +
                 "                <div class=\"form-group\">\n" +
@@ -266,12 +310,15 @@ public class ViewHtml {
                 "                <button type=\"submit\" class=\"btn-submit\">Crear y Publicar</button>\n" +
                 "            </form>\n" +
                 "        </div>\n" +
+                "\n" +
                 "        <div class=\"card\">\n" +
-                "            <h2>Administrar Semanas Publicadas</h2>\n" +
-                "            " + listaAdmin.toString() + "\n" +
+                "            <div class=\"card-title\">📂 Administrar Semanas Publicadas</div>\n" +
+                "            <div>\n" +
+                "                " + listaAdmin.toString() + "\n" +
+                "            </div>\n" +
                 "        </div>\n" +
-                "        <a href=\"/\" class=\"btn-back\">← Volver al Portafolio</a>\n" +
                 "    </div>\n" +
+                "\n" +
                 "    <div id=\"editModal\" class=\"modal\">\n" +
                 "        <div class=\"modal-content\">\n" +
                 "            <h3>Editar Semana / Trabajo</h3>\n" +
@@ -294,6 +341,7 @@ public class ViewHtml {
                 "            <button onclick=\"cerrarEditar()\" style=\"margin-top: 0.8rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; width:100%;\">Cancelar</button>\n" +
                 "        </div>\n" +
                 "    </div>\n" +
+                "\n" +
                 "    <script>\n" +
                 "        function abrirEditar(id, semana, descripcion) {\n" +
                 "            document.getElementById('edit-id').value = id;\n" +

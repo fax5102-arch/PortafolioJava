@@ -53,46 +53,60 @@ public class CPanelController implements HttpHandler {
         public void handle(HttpExchange exchange) throws IOException {
             System.out.println(">>> Recibida peticion POST en /subir-trabajo");
             if (!AuthController.esAutenticado(exchange) || !"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                System.out.println(">>> Error: No autenticado o metodo no es POST");
                 exchange.getResponseHeaders().set("Location", "/");
                 exchange.sendResponseHeaders(302, -1);
                 return;
             }
 
-            byte[] data = readRequestBody(exchange);
-            String boundary = extractBoundary(exchange);
+            try {
+                byte[] data = readRequestBody(exchange);
+                String boundary = extractBoundary(exchange);
 
-            if (boundary != null) {
-                String semana = extractField(data, boundary, "semana");
-                String descripcion = extractField(data, boundary, "descripcion");
-                String pdfUrl = "";
+                System.out.println(">>> Boundary detectado: " + boundary);
 
-                System.out.println("Semana recibida: " + semana);
+                if (boundary != null) {
+                    String semana = extractField(data, boundary, "semana");
+                    String descripcion = extractField(data, boundary, "descripcion");
+                    String pdfUrl = "";
 
-                if (hasFileAttached(data, boundary, "pdfFile")) {
-                    String filename = "trabajo_" + System.currentTimeMillis() + ".pdf";
-                    File pubDir = new File("public");
-                    if (!pubDir.exists()) pubDir.mkdirs();
+                    System.out.println(">>> Semana extraída: [" + semana + "]");
+                    System.out.println(">>> Descripción extraída: [" + descripcion + "]");
 
-                    saveFileField(data, boundary, "pdfFile", "public/" + filename);
-                    pdfUrl = "/static/" + filename;
-                    System.out.println("Archivo PDF guardado como: " + filename);
-                }
+                    if (hasFileAttached(data, boundary, "pdfFile")) {
+                        String filename = "trabajo_" + System.currentTimeMillis() + ".pdf";
+                        File pubDir = new File("public");
+                        if (!pubDir.exists()) pubDir.mkdirs();
 
-                if (semana != null && !semana.isEmpty()) {
-                    String sql = "INSERT INTO evidencias (semana, descripcion, pdf_url) VALUES (?, ?, ?)";
-                    try (Connection conn = Database.getConnection();
-                         PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                        pstmt.setString(1, semana);
-                        pstmt.setString(2, descripcion);
-                        pstmt.setString(3, pdfUrl);
-                        pstmt.executeUpdate();
-                        System.out.println("Evidencia insertada con éxito en SQLite.");
-                    } catch (SQLException e) {
-                        e.printStackTrace();
+                        saveFileField(data, boundary, "pdfFile", "public/" + filename);
+                        pdfUrl = "/static/" + filename;
+                        System.out.println(">>> Archivo PDF guardado como: " + filename);
+                    } else {
+                        System.out.println(">>> No se adjuntó archivo PDF (o está vacío).");
                     }
+
+                    if (semana != null && !semana.isEmpty()) {
+                        String sql = "INSERT INTO evidencias (semana, descripcion, pdf_url) VALUES (?, ?, ?)";
+                        try (Connection conn = Database.getConnection();
+                             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                            pstmt.setString(1, semana);
+                            pstmt.setString(2, descripcion);
+                            pstmt.setString(3, pdfUrl);
+                            pstmt.executeUpdate();
+                            System.out.println(">>> ¡EXITO! Evidencia insertada en SQLite.");
+                        } catch (SQLException e) {
+                            System.out.println(">>> ERROR SQL al insertar en base de datos:");
+                            e.printStackTrace();
+                        }
+                    } else {
+                        System.out.println(">>> Error: La variable 'semana' llegó vacía.");
+                    }
+                } else {
+                    System.out.println(">>> Error: Boundary es NULL. El Content-Type no es multipart/form-data.");
                 }
-            } else {
-                System.out.println(">>> Error: No se pudo detectar el boundary en la peticion.");
+            } catch (Exception e) {
+                System.out.println(">>> ERROR GENERAL en SubirTrabajoHandler:");
+                e.printStackTrace();
             }
 
             exchange.getResponseHeaders().set("Location", "/cpanel");
@@ -146,7 +160,6 @@ public class CPanelController implements HttpHandler {
                         finalPdfUrl = "/static/" + filename;
                     }
 
-                    // Corrección aquí: se eliminó fecha_actualizacion = CURRENT_TIMESTAMP
                     String updateSql = "UPDATE evidencias SET semana = ?, descripcion = ?, pdf_url = ? WHERE id = ?";
                     try (Connection conn = Database.getConnection();
                          PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
@@ -241,13 +254,11 @@ public class CPanelController implements HttpHandler {
             }
             if (endData == -1) endData = data.length;
 
+            if (endData > startData && data[endData - 1] == '\n') endData--;
+            if (endData > startData && data[endData - 1] == '\r') endData--;
+
             byte[] campoBytes = Arrays.copyOfRange(data, startData, endData);
-            String val = new String(campoBytes, StandardCharsets.UTF_8).trim();
-
-            if (val.endsWith("\r")) val = val.substring(0, val.length() - 1);
-            if (val.endsWith("\n")) val = val.substring(0, val.length() - 1);
-
-            return val;
+            return new String(campoBytes, StandardCharsets.UTF_8).trim();
         } catch (Exception e) {
             e.printStackTrace();
             return "";
@@ -282,7 +293,7 @@ public class CPanelController implements HttpHandler {
 
     private static boolean hasFileAttached(byte[] data, String boundary, String fieldName) {
         try {
-            String token = "name=\"" + fieldName + "\"; filename=";
+            String token = "name=\"" + fieldName + "\"";
             byte[] tokenBytes = token.getBytes(StandardCharsets.UTF_8);
             int startHeader = indexOfBytes(data, tokenBytes, 0);
             if (startHeader == -1) return false;
@@ -298,13 +309,15 @@ public class CPanelController implements HttpHandler {
             }
             if (endData == -1) return false;
 
-            return (endData - startData) > 10;
-        } catch (Exception e) { return false; }
+            return (endData - startData) > 5;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static void saveFileField(byte[] data, String boundary, String fieldName, String outputPath) {
         try {
-            String token = "name=\"" + fieldName + "\"; filename=";
+            String token = "name=\"" + fieldName + "\"";
             byte[] tokenBytes = token.getBytes(StandardCharsets.UTF_8);
             int startHeader = indexOfBytes(data, tokenBytes, 0);
             if (startHeader == -1) return;
