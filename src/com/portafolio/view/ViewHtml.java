@@ -10,8 +10,8 @@ public class ViewHtml {
 
     public static String renderPortafolio(List<Evidencia> listaEvidencias, boolean autenticado) {
         StringBuilder evidenciasHtml = new StringBuilder();
-        if (listaEvidencias == null || listaEvidencias.isEmpty()) {
-            evidenciasHtml.append("<p style=\"font-size: 0.88rem;\">No hay evidencias publicadas aún.</p>");
+        if (listaEvidencias.isEmpty()) {
+            evidenciasHtml.append("<p style=\"font-size: 0.88rem;\">Hola.</p>");
         } else {
             Map<String, List<Evidencia>> evidenciasPorSemana = listaEvidencias.stream()
                     .collect(Collectors.groupingBy(Evidencia::getSemana, LinkedHashMap::new, Collectors.toList()));
