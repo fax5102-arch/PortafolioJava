@@ -1,36 +1,65 @@
 package com.portafolio;
 
-import com.sun.net.httpserver.HttpServer;
-import com.portafolio.controller.PortafolioController;
+import com.portafolio.config.Database;
 import com.portafolio.controller.AuthController;
 import com.portafolio.controller.CPanelController;
+import com.portafolio.controller.PortafolioController;
 import com.portafolio.controller.StaticController;
+import com.portafolio.controller.StaticFileHandler;
 
-import java.io.File;
+import com.sun.net.httpserver.HttpServer;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 public class Main {
 
-    public static void main(String[] args) throws IOException {
-        File publicDir = new File("public");
-        if (!publicDir.exists()) publicDir.mkdirs();
+    private static final int PORT = 8080;
 
-        int port = 8085;
-        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+    public static void main(String[] args) {
+        try {
+            // 1. Inicializar y probar la conexión a la Base de Datos SQLite
+            System.out.println("Inicializando la base de datos...");
+            try (Connection conn = Database.getConnection()) {
+                if (conn != null) {
+                    System.out.println("¡Base de datos conectada e inicializada con éxito!");
+                }
+            } catch (SQLException e) {
+                System.err.println("Error al conectar con la base de datos: " + e.getMessage());
+            }
 
-        // Mapeo de Rutas conectadas a SQLite y protegidas por sesión
-        server.createContext("/", new PortafolioController());
-        server.createContext("/login", new AuthController.LoginHandler());
-        server.createContext("/logout", new AuthController.LogoutHandler());
-        server.createContext("/cpanel", new CPanelController());
-        server.createContext("/subir-trabajo", new CPanelController.SubirTrabajoHandler());
-        server.createContext("/editar-trabajo", new CPanelController.EditarTrabajoHandler());
-        server.createContext("/eliminar-trabajo", new CPanelController.EliminarTrabajoHandler());
-        server.createContext("/static/", new StaticController());
+            // 2. Crear el servidor HTTP en el puerto 8080
+            HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
 
-        server.setExecutor(null);
-        System.out.println("Servidor MVC iniciado con éxito en http://localhost:" + port);
-        server.start();
+            // 3. Registrar los manejadores de rutas (Controllers)
+
+            // Ruta principal de la vista pública (Portafolio)
+            server.createContext("/", new PortafolioController());
+
+            // Rutas de administración y autenticación
+            server.createContext("/auth", new AuthController());
+            server.createContext("/cpanel", new CPanelController());
+
+            // Manejador de archivos estáticos genérico (si existe en tu proyecto)
+            server.createContext("/static", new StaticController());
+
+            // Manejador clave para archivos PDF, imágenes y CSS dentro de /public
+            server.createContext("/public", new StaticFileHandler());
+
+            // 4. Iniciar el servidor
+            server.setExecutor(null); // Usar el ejecutor por defecto
+            server.start();
+
+            System.out.println("==================================================");
+            System.out.println("Servidor iniciado correctamente en:");
+            System.out.println("http://localhost:" + PORT + "/");
+            System.out.println("==================================================");
+
+        } catch (IOException e) {
+            System.err.println("Error al iniciar el servidor HTTP: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

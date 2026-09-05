@@ -7,7 +7,13 @@ import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 
-public class AuthController {
+public class AuthController implements HttpHandler {
+
+    @Override
+    public void handle(HttpExchange exchange) throws IOException {
+        // Redirige la petición entrante al handler de Login
+        new LoginHandler().handle(exchange);
+    }
 
     public static boolean esAutenticado(HttpExchange exchange) {
         String token = obtenerCookieSesion(exchange);

@@ -21,7 +21,7 @@ public class Database {
     }
 
     private static void inicializarBaseDatos(Connection conn) {
-        String sql = "CREATE TABLE IF NOT EXISTS evidencias (" +
+        String sqlCreateTable = "CREATE TABLE IF NOT EXISTS evidencias (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "semana TEXT NOT NULL, " +
                 "descripcion TEXT NOT NULL, " +
@@ -30,7 +30,24 @@ public class Database {
                 "fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP);";
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
+            // 1. Crear la tabla
+            stmt.execute(sqlCreateTable);
+
+            // 2. Limpiar la tabla para evitar conflictos con registros viejos
+            stmt.execute("DELETE FROM evidencias;");
+
+            // 3. Insertar la evidencia de la Semana 1
+            stmt.execute("INSERT INTO evidencias (semana, descripcion, pdf_url) VALUES " +
+                    "('Semana 1', 'Informe y documentación de la Semana 1', '/public/semana1/semana1.pdf');");
+
+            // 4. Insertar los 5 nuevos archivos PDF de la Semana 2
+            stmt.execute("INSERT INTO evidencias (semana, descripcion, pdf_url) VALUES " +
+                    "('Semana 2', 'Actores de un Proyecto Web', '/public/semana2/Actores de un Proyecto Web.pdf'), " +
+                    "('Semana 2', 'Herramientas de Gestión', '/public/semana2/Herramientas de Gestión.pdf'), " +
+                    "('Semana 2', 'Organización del Trabajo', '/public/semana2/Organización del Trabajo.pdf'), " +
+                    "('Semana 2', 'Roles y Responsabilidades', '/public/semana2/Roles y Responsabilidades.pdf'), " +
+                    "('Semana 2', 'Tipos de Proyecto Web', '/public/semana2/Tipos de Proyecto Web.pdf');");
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
