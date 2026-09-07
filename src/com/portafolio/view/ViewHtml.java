@@ -10,7 +10,7 @@ public class ViewHtml {
 
     public static String renderPortafolio(List<Evidencia> listaEvidencias, boolean autenticado) {
         StringBuilder evidenciasHtml = new StringBuilder();
-        if (listaEvidencias.isEmpty()) {
+        if (listaEvidencias == null || listaEvidencias.isEmpty()) {
             evidenciasHtml.append("<p style=\"font-size: 0.88rem;\">No hay evidencias publicadas aún.</p>");
         } else {
             Map<String, List<Evidencia>> evidenciasPorSemana = listaEvidencias.stream()
@@ -173,11 +173,7 @@ public class ViewHtml {
                 "            let items = document.querySelectorAll('#contenedorEvidencias details');\n" +
                 "            items.forEach(item => {\n" +
                 "                let texto = item.textContent.toLowerCase();\n" +
-                "                if (texto.includes(input)) {\n" +
-                "                    item.style.display = \"\";\n" +
-                "                } else {\n" +
-                "                    item.style.display = \"none\";\n" +
-                "                }\n" +
+                "                item.style.display = texto.includes(input) ? \"\" : \"none\";\n" +
                 "            });\n" +
                 "        }\n" +
                 "    </script>\n" +
@@ -201,14 +197,16 @@ public class ViewHtml {
                                 "       <p style=\"font-size: 0.85rem; color: var(--text-white); margin-top: 0.3rem;\">%s</p>" +
                                 "   </div>" +
                                 "   <div style=\"display: flex; gap: 0.5rem;\">" +
-                                "       <button onclick=\"abrirEditar('%s', '%s', '%s')\" style=\"background: rgba(0, 242, 254, 0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 0.35rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;\">Editar</button>" +
+                                "       <button onclick=\"abrirEditar(this)\" data-id=\"%s\" data-semana=\"%s\" data-descripcion=\"%s\" style=\"background: rgba(0, 242, 254, 0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 0.35rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;\">Editar</button>" +
                                 "       <form action=\"/eliminar-trabajo\" method=\"POST\" style=\"display:inline;\">" +
                                 "           <input type=\"hidden\" name=\"id\" value=\"%s\">" +
                                 "           <button type=\"submit\" style=\"background: rgba(255, 77, 77, 0.1); border: 1px solid #ff4d4d; color: #ff4d4d; padding: 0.35rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;\">Eliminar</button>" +
                                 "       </form>" +
                                 "   </div>" +
                                 "</div>",
-                        escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()), ev.getId(), escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()), ev.getId()
+                        escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()),
+                        escapeHtml(ev.getId()), escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()),
+                        escapeHtml(ev.getId())
                 );
                 listaAdmin.append(adminItem);
             }
@@ -226,7 +224,6 @@ public class ViewHtml {
                 "        @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }\n" +
                 "        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-main); color: var(--text-muted); display: flex; min-height: 100vh; animation: fadeIn 0.4s ease-out; }\n" +
                 "        \n" +
-                "        /* Sidebar */\n" +
                 "        .sidebar { width: 260px; background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; position: fixed; height: 100vh; }\n" +
                 "        .sidebar-top { display: flex; flex-direction: column; gap: 1.5rem; }\n" +
                 "        .sidebar-brand { color: var(--text-white); font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; }\n" +
@@ -235,17 +232,14 @@ public class ViewHtml {
                 "        .menu-item.active, .menu-item:hover { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.2); }\n" +
                 "        .btn-logout { display: flex; align-items: center; gap: 0.6rem; color: #ff4d4d; text-decoration: none; font-size: 0.9rem; font-weight: 600; padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid rgba(255, 77, 77, 0.2); background: rgba(255, 77, 77, 0.05); }\n" +
                 "        \n" +
-                "        /* Main Dashboard */\n" +
                 "        .main-container { margin-left: 260px; flex: 1; padding: 2rem; max-width: calc(100vw - 260px); }\n" +
                 "        .page-title { color: var(--text-white); font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }\n" +
                 "        \n" +
-                "        /* Metrics Grid */\n" +
                 "        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }\n" +
                 "        .metric-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.2rem 1.5rem; }\n" +
                 "        .metric-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 0.4rem; }\n" +
                 "        .metric-value { color: var(--text-white); font-size: 1.8rem; font-weight: 700; }\n" +
                 "        \n" +
-                "        /* Cards / Sections */\n" +
                 "        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.8rem; margin-bottom: 1.5rem; }\n" +
                 "        .card-title { color: var(--text-white); font-size: 1.1rem; font-weight: 700; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }\n" +
                 "        \n" +
@@ -254,7 +248,6 @@ public class ViewHtml {
                 "        .form-control { width: 100%; padding: 0.7rem 1rem; background: #080d1a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-white); outline: none; font-size: 0.9rem; }\n" +
                 "        .btn-submit { background: var(--accent-cyan); color: #000; border: none; padding: 0.7rem 1.4rem; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }\n" +
                 "        \n" +
-                "        /* Modal */\n" +
                 "        .modal { display: none; position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; backdrop-filter: blur(4px); }\n" +
                 "        .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); padding: 2rem; border-radius: 16px; width: 400px; animation: scaleUp 0.3s forwards; }\n" +
                 "        .modal-content h3 { color: var(--text-white); margin-bottom: 1rem; font-size: 1.1rem; }\n" +
@@ -343,10 +336,10 @@ public class ViewHtml {
                 "    </div>\n" +
                 "\n" +
                 "    <script>\n" +
-                "        function abrirEditar(id, semana, descripcion) {\n" +
-                "            document.getElementById('edit-id').value = id;\n" +
-                "            document.getElementById('edit-semana').value = semana;\n" +
-                "            document.getElementById('edit-descripcion').value = descripcion;\n" +
+                "        function abrirEditar(btn) {\n" +
+                "            document.getElementById('edit-id').value = btn.getAttribute('data-id');\n" +
+                "            document.getElementById('edit-semana').value = btn.getAttribute('data-semana');\n" +
+                "            document.getElementById('edit-descripcion').value = btn.getAttribute('data-descripcion');\n" +
                 "            document.getElementById('editModal').style.display = 'flex';\n" +
                 "        }\n" +
                 "        function cerrarEditar() { document.getElementById('editModal').style.display = 'none'; }\n" +
@@ -357,6 +350,10 @@ public class ViewHtml {
 
     public static String escapeHtml(String input) {
         if (input == null) return "";
-        return input.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+        return input.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }

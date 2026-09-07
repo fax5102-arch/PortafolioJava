@@ -17,7 +17,7 @@ public class CPanelController implements HttpHandler {
 
     public static List<Evidencia> obtenerEvidencias() {
         List<Evidencia> lista = new ArrayList<>();
-        String sql = "SELECT id, semana, descripcion, pdf_url FROM evidencias";
+        String sql = "SELECT id, semana, descripcion, pdf_url FROM evidencias ORDER BY id DESC";
         try (Connection conn = Database.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -51,11 +51,11 @@ public class CPanelController implements HttpHandler {
     public static class SubirTrabajoHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            System.out.println(">>> Recibida peticion POST en /subir-trabajo");
             if (!AuthController.esAutenticado(exchange) || !"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                System.out.println(">>> Error: No autenticado o metodo no es POST");
+                try (InputStream is = exchange.getRequestBody()) { is.readAllBytes(); }
                 exchange.getResponseHeaders().set("Location", "/");
                 exchange.sendResponseHeaders(302, -1);
+                exchange.close();
                 return;
             }
 
@@ -63,15 +63,10 @@ public class CPanelController implements HttpHandler {
                 byte[] data = readRequestBody(exchange);
                 String boundary = extractBoundary(exchange);
 
-                System.out.println(">>> Boundary detectado: " + boundary);
-
                 if (boundary != null) {
                     String semana = extractField(data, boundary, "semana");
                     String descripcion = extractField(data, boundary, "descripcion");
                     String pdfUrl = "";
-
-                    System.out.println(">>> Semana extraída: [" + semana + "]");
-                    System.out.println(">>> Descripción extraída: [" + descripcion + "]");
 
                     if (hasFileAttached(data, boundary, "pdfFile")) {
                         String filename = "trabajo_" + System.currentTimeMillis() + ".pdf";
@@ -79,38 +74,29 @@ public class CPanelController implements HttpHandler {
                         if (!pubDir.exists()) pubDir.mkdirs();
 
                         saveFileField(data, boundary, "pdfFile", "public/" + filename);
-                        pdfUrl = "/static/" + filename;
-                        System.out.println(">>> Archivo PDF guardado como: " + filename);
-                    } else {
-                        System.out.println(">>> No se adjuntó archivo PDF (o está vacío).");
+                        pdfUrl = "/public/" + filename;
                     }
 
-                    if (semana != null && !semana.isEmpty()) {
+                    if (semana != null && !semana.trim().isEmpty()) {
                         String sql = "INSERT INTO evidencias (semana, descripcion, pdf_url) VALUES (?, ?, ?)";
                         try (Connection conn = Database.getConnection();
                              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                            pstmt.setString(1, semana);
-                            pstmt.setString(2, descripcion);
+                            pstmt.setString(1, semana.trim());
+                            pstmt.setString(2, descripcion != null ? descripcion.trim() : "");
                             pstmt.setString(3, pdfUrl);
                             pstmt.executeUpdate();
-                            System.out.println(">>> ¡EXITO! Evidencia insertada en SQLite.");
                         } catch (SQLException e) {
-                            System.out.println(">>> ERROR SQL al insertar en base de datos:");
                             e.printStackTrace();
                         }
-                    } else {
-                        System.out.println(">>> Error: La variable 'semana' llegó vacía.");
                     }
-                } else {
-                    System.out.println(">>> Error: Boundary es NULL. El Content-Type no es multipart/form-data.");
                 }
             } catch (Exception e) {
-                System.out.println(">>> ERROR GENERAL en SubirTrabajoHandler:");
                 e.printStackTrace();
             }
 
             exchange.getResponseHeaders().set("Location", "/cpanel");
             exchange.sendResponseHeaders(302, -1);
+            exchange.close();
         }
     }
 
@@ -118,62 +104,69 @@ public class CPanelController implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             if (!AuthController.esAutenticado(exchange) || !"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                try (InputStream is = exchange.getRequestBody()) { is.readAllBytes(); }
                 exchange.getResponseHeaders().set("Location", "/");
                 exchange.sendResponseHeaders(302, -1);
+                exchange.close();
                 return;
             }
 
-            byte[] data = readRequestBody(exchange);
-            String boundary = extractBoundary(exchange);
+            try {
+                byte[] data = readRequestBody(exchange);
+                String boundary = extractBoundary(exchange);
 
-            if (boundary != null) {
-                String idStr = extractField(data, boundary, "id");
-                String nuevaSemana = extractField(data, boundary, "semana");
-                String nuevaDescripcion = extractField(data, boundary, "descripcion");
+                if (boundary != null) {
+                    String idStr = extractField(data, boundary, "id");
+                    String nuevaSemana = extractField(data, boundary, "semana");
+                    String nuevaDescripcion = extractField(data, boundary, "descripcion");
 
-                if (idStr != null && !idStr.isEmpty()) {
-                    int id = Integer.parseInt(idStr);
+                    if (idStr != null && !idStr.trim().isEmpty()) {
+                        int id = Integer.parseInt(idStr.trim());
 
-                    String selectSql = "SELECT pdf_url FROM evidencias WHERE id = ?";
-                    String pdfUrlActual = "";
-                    try (Connection conn = Database.getConnection();
-                         PreparedStatement pstmt = conn.prepareStatement(selectSql)) {
-                        pstmt.setInt(1, id);
-                        try (ResultSet rs = pstmt.executeQuery()) {
-                            if (rs.next()) pdfUrlActual = rs.getString("pdf_url");
+                        String selectSql = "SELECT pdf_url FROM evidencias WHERE id = ?";
+                        String pdfUrlActual = "";
+                        try (Connection conn = Database.getConnection();
+                             PreparedStatement pstmt = conn.prepareStatement(selectSql)) {
+                            pstmt.setInt(1, id);
+                            try (ResultSet rs = pstmt.executeQuery()) {
+                                if (rs.next()) pdfUrlActual = rs.getString("pdf_url");
+                            }
+                        } catch (SQLException e) { e.printStackTrace(); }
+
+                        boolean hasNewFile = hasFileAttached(data, boundary, "pdfFile");
+                        String finalPdfUrl = pdfUrlActual;
+
+                        if (hasNewFile) {
+                            if (pdfUrlActual != null && pdfUrlActual.startsWith("/public/")) {
+                                File oldFile = new File("public/" + pdfUrlActual.replace("/public/", ""));
+                                if (oldFile.exists()) oldFile.delete();
+                            }
+                            String filename = "trabajo_" + System.currentTimeMillis() + ".pdf";
+                            File pubDir = new File("public");
+                            if (!pubDir.exists()) pubDir.mkdirs();
+
+                            saveFileField(data, boundary, "pdfFile", "public/" + filename);
+                            finalPdfUrl = "/public/" + filename;
                         }
-                    } catch (SQLException e) { e.printStackTrace(); }
 
-                    boolean hasNewFile = hasFileAttached(data, boundary, "pdfFile");
-                    String finalPdfUrl = pdfUrlActual;
-
-                    if (hasNewFile) {
-                        if (pdfUrlActual != null && pdfUrlActual.startsWith("/static/")) {
-                            File oldFile = new File("public/" + pdfUrlActual.replace("/static/", ""));
-                            if (oldFile.exists()) oldFile.delete();
-                        }
-                        String filename = "trabajo_" + System.currentTimeMillis() + ".pdf";
-                        File pubDir = new File("public");
-                        if (!pubDir.exists()) pubDir.mkdirs();
-
-                        saveFileField(data, boundary, "pdfFile", "public/" + filename);
-                        finalPdfUrl = "/static/" + filename;
+                        String updateSql = "UPDATE evidencias SET semana = ?, descripcion = ?, pdf_url = ? WHERE id = ?";
+                        try (Connection conn = Database.getConnection();
+                             PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+                            pstmt.setString(1, nuevaSemana != null ? nuevaSemana.trim() : "");
+                            pstmt.setString(2, nuevaDescripcion != null ? nuevaDescripcion.trim() : "");
+                            pstmt.setString(3, finalPdfUrl);
+                            pstmt.setInt(4, id);
+                            pstmt.executeUpdate();
+                        } catch (SQLException e) { e.printStackTrace(); }
                     }
-
-                    String updateSql = "UPDATE evidencias SET semana = ?, descripcion = ?, pdf_url = ? WHERE id = ?";
-                    try (Connection conn = Database.getConnection();
-                         PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
-                        pstmt.setString(1, nuevaSemana);
-                        pstmt.setString(2, nuevaDescripcion);
-                        pstmt.setString(3, finalPdfUrl);
-                        pstmt.setInt(4, id);
-                        pstmt.executeUpdate();
-                    } catch (SQLException e) { e.printStackTrace(); }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
 
             exchange.getResponseHeaders().set("Location", "/cpanel");
             exchange.sendResponseHeaders(302, -1);
+            exchange.close();
         }
     }
 
@@ -181,41 +174,48 @@ public class CPanelController implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             if (!AuthController.esAutenticado(exchange) || !"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                try (InputStream is = exchange.getRequestBody()) { is.readAllBytes(); }
                 exchange.getResponseHeaders().set("Location", "/");
                 exchange.sendResponseHeaders(302, -1);
+                exchange.close();
                 return;
             }
 
-            Map<String, String> params = parseSimpleFormData(exchange);
-            String idStr = params.get("id");
+            try {
+                Map<String, String> params = parseSimpleFormData(exchange);
+                String idStr = params.get("id");
 
-            if (idStr != null) {
-                int id = Integer.parseInt(idStr);
-                String selectSql = "SELECT pdf_url FROM evidencias WHERE id = ?";
-                try (Connection conn = Database.getConnection();
-                     PreparedStatement pstmt = conn.prepareStatement(selectSql)) {
-                    pstmt.setInt(1, id);
-                    try (ResultSet rs = pstmt.executeQuery()) {
-                        if (rs.next()) {
-                            String pdfUrl = rs.getString("pdf_url");
-                            if (pdfUrl != null && pdfUrl.startsWith("/static/")) {
-                                File fileToDelete = new File("public/" + pdfUrl.replace("/static/", ""));
-                                if (fileToDelete.exists()) fileToDelete.delete();
+                if (idStr != null) {
+                    int id = Integer.parseInt(idStr);
+                    String selectSql = "SELECT pdf_url FROM evidencias WHERE id = ?";
+                    try (Connection conn = Database.getConnection();
+                         PreparedStatement pstmt = conn.prepareStatement(selectSql)) {
+                        pstmt.setInt(1, id);
+                        try (ResultSet rs = pstmt.executeQuery()) {
+                            if (rs.next()) {
+                                String pdfUrl = rs.getString("pdf_url");
+                                if (pdfUrl != null && pdfUrl.startsWith("/public/")) {
+                                    File fileToDelete = new File("public/" + pdfUrl.replace("/public/", ""));
+                                    if (fileToDelete.exists()) fileToDelete.delete();
+                                }
                             }
                         }
-                    }
-                } catch (SQLException e) { e.printStackTrace(); }
+                    } catch (SQLException e) { e.printStackTrace(); }
 
-                String deleteSql = "DELETE FROM evidencias WHERE id = ?";
-                try (Connection conn = Database.getConnection();
-                     PreparedStatement pstmt = conn.prepareStatement(deleteSql)) {
-                    pstmt.setInt(1, id);
-                    pstmt.executeUpdate();
-                } catch (SQLException e) { e.printStackTrace(); }
+                    String deleteSql = "DELETE FROM evidencias WHERE id = ?";
+                    try (Connection conn = Database.getConnection();
+                         PreparedStatement pstmt = conn.prepareStatement(deleteSql)) {
+                        pstmt.setInt(1, id);
+                        pstmt.executeUpdate();
+                    } catch (SQLException e) { e.printStackTrace(); }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
 
             exchange.getResponseHeaders().set("Location", "/cpanel");
             exchange.sendResponseHeaders(302, -1);
+            exchange.close();
         }
     }
 
@@ -231,7 +231,14 @@ public class CPanelController implements HttpHandler {
     private static String extractBoundary(HttpExchange exchange) {
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
         if (contentType != null && contentType.contains("boundary=")) {
-            return contentType.substring(contentType.indexOf("boundary=") + 9).trim();
+            String boundary = contentType.substring(contentType.indexOf("boundary=") + 9).trim();
+            if (boundary.contains(";")) {
+                boundary = boundary.substring(0, boundary.indexOf(";")).trim();
+            }
+            if (boundary.startsWith("\"") && boundary.endsWith("\"")) {
+                boundary = boundary.substring(1, boundary.length() - 1);
+            }
+            return boundary;
         }
         return null;
     }

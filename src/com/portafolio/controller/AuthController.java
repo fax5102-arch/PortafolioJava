@@ -11,7 +11,6 @@ public class AuthController implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        // Redirige la petición entrante al handler de Login
         new LoginHandler().handle(exchange);
     }
 
@@ -41,6 +40,7 @@ public class AuthController implements HttpHandler {
                 String query = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 String usuario = "";
                 String password = "";
+
                 for (String param : query.split("&")) {
                     String[] pair = param.split("=");
                     if (pair.length == 2) {
@@ -51,13 +51,18 @@ public class AuthController implements HttpHandler {
 
                 if ("admin".equals(usuario) && "1234".equals(password)) {
                     String token = SessionManager.crearSesion(usuario);
-                    exchange.getResponseHeaders().add("Set-Cookie", "SESION_PORTAFOLIO=" + token + "; Path=/; HttpOnly");
+                    // Incluye SameSite=Lax para prevenir bloqueo de cookies en despliegues HTTPS (Render)
+                    exchange.getResponseHeaders().add("Set-Cookie", "SESION_PORTAFOLIO=" + token + "; Path=/; HttpOnly; SameSite=Lax");
                     exchange.getResponseHeaders().set("Location", "/cpanel");
                     exchange.sendResponseHeaders(303, -1);
                 } else {
                     exchange.getResponseHeaders().set("Location", "/?error=credenciales");
                     exchange.sendResponseHeaders(303, -1);
                 }
+            } else {
+                // Manejo de peticiones GET para evitar congelamiento de la respuesta HTTP
+                exchange.getResponseHeaders().set("Location", "/");
+                exchange.sendResponseHeaders(302, -1);
             }
         }
     }
@@ -66,9 +71,11 @@ public class AuthController implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             String token = obtenerCookieSesion(exchange);
-            SessionManager.destruirSesion(token);
+            if (token != null) {
+                SessionManager.destruirSesion(token);
+            }
 
-            exchange.getResponseHeaders().add("Set-Cookie", "SESION_PORTAFOLIO=; Path=/; Max-Age=0; HttpOnly");
+            exchange.getResponseHeaders().add("Set-Cookie", "SESION_PORTAFOLIO=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
             exchange.getResponseHeaders().set("Location", "/");
             exchange.sendResponseHeaders(303, -1);
         }

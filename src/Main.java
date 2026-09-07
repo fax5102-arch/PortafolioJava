@@ -20,7 +20,7 @@ public class Main {
 
     public static void main(String[] args) {
         try {
-            // 1. Inicializar y probar la conexión a la Base de Datos SQLite
+            // 1. Inicializar conexión a la base de datos
             System.out.println("Inicializando la base de datos...");
             try (Connection conn = Database.getConnection()) {
                 if (conn != null) {
@@ -30,31 +30,33 @@ public class Main {
                 System.err.println("Error al conectar con la base de datos: " + e.getMessage());
             }
 
-            // 2. Crear el servidor HTTP en el puerto 8080
+            // 2. Crear el servidor HTTP
             HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
 
-            // 3. Registrar los manejadores de rutas (Controllers)
-
-            // Ruta principal de la vista pública (Portafolio)
+            // 3. Rutas de vistas
             server.createContext("/", new PortafolioController());
-
-            // Rutas de administración y autenticación
-            server.createContext("/auth", new AuthController());
             server.createContext("/cpanel", new CPanelController());
 
-            // Manejador de archivos estáticos genérico (si existe en tu proyecto)
-            server.createContext("/static", new StaticController());
+            // 4. Rutas de acciones del CPanel
+            server.createContext("/subir-trabajo", new CPanelController.SubirTrabajoHandler());
+            server.createContext("/editar-trabajo", new CPanelController.EditarTrabajoHandler());
+            server.createContext("/eliminar-trabajo", new CPanelController.EliminarTrabajoHandler());
 
-            // Manejador clave para archivos PDF, imágenes y CSS dentro de /public
+            // 5. Autenticación
+            server.createContext("/login", new AuthController.LoginHandler());
+            server.createContext("/auth", new AuthController.LoginHandler());
+            server.createContext("/logout", new AuthController.LogoutHandler());
+
+            // 6. Archivos estáticos
+            server.createContext("/static", new StaticController());
             server.createContext("/public", new StaticFileHandler());
 
-            // 4. Iniciar el servidor
-            server.setExecutor(null); // Usar el ejecutor por defecto
+            // 7. Iniciar servidor
+            server.setExecutor(null);
             server.start();
 
             System.out.println("==================================================");
-            System.out.println("Servidor iniciado correctamente en:");
-            System.out.println("http://localhost:" + PORT + "/");
+            System.out.println("Servidor corriendo en: http://localhost:" + PORT + "/");
             System.out.println("==================================================");
 
         } catch (IOException e) {
