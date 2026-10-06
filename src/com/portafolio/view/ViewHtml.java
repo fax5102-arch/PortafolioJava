@@ -139,7 +139,6 @@ public class ViewHtml {
                 "        .project-title { color: var(--text-white); font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }\n" +
                 "        .project-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem; }\n" +
                 "\n" +
-                "        /* Estilos de Tarjetas en Cuadrícula para las Semanas */\n" +
                 "        .semanas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.2rem; margin-top: 1rem; }\n" +
                 "        .semana-card { background: var(--inner-card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.4rem; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.3s ease; position: relative; }\n" +
                 "        .semana-card:hover { border-color: var(--accent-cyan); transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0, 242, 254, 0.1); }\n" +
@@ -324,30 +323,35 @@ public class ViewHtml {
         int totalSemanas = (listaEvidencias != null) ? (int) listaEvidencias.stream().map(Evidencia::getSemana).distinct().count() : 0;
         int totalTareas = (listaEvidencias != null) ? listaEvidencias.size() : 0;
 
-        StringBuilder listaAdmin = new StringBuilder();
+        StringBuilder tablaFilasAdmin = new StringBuilder();
         if (listaEvidencias == null || listaEvidencias.isEmpty()) {
-            listaAdmin.append("<p style=\"font-size: 0.88rem; color: var(--text-muted);\">No hay semanas registradas.</p>");
+            tablaFilasAdmin.append("<tr><td colspan=\"4\" style=\"text-align:center; padding: 2rem; color: var(--text-muted);\">No hay semanas registradas.</td></tr>");
         } else {
             for (Evidencia ev : listaEvidencias) {
-                String adminItem = String.format(
-                        "<div style=\"background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;\">" +
-                                "   <div>" +
-                                "       <span style=\"color: var(--accent-cyan); font-weight: 600; font-size: 0.88rem;\">📌 %s</span>" +
-                                "       <p style=\"font-size: 0.85rem; color: var(--text-white); margin-top: 0.3rem;\">%s</p>" +
-                                "   </div>" +
-                                "   <div style=\"display: flex; gap: 0.5rem;\">" +
-                                "       <button onclick=\"abrirEditar(this)\" data-id=\"%s\" data-semana=\"%s\" data-descripcion=\"%s\" style=\"background: rgba(0, 242, 254, 0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 0.35rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;\">Editar</button>" +
-                                "       <form action=\"/eliminar-trabajo\" method=\"POST\" style=\"display:inline;\">" +
-                                "           <input type=\"hidden\" name=\"id\" value=\"%s\">" +
-                                "           <button type=\"submit\" style=\"background: rgba(255, 77, 77, 0.1); border: 1px solid #ff4d4d; color: #ff4d4d; padding: 0.35rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;\">Eliminar</button>" +
-                                "       </form>" +
-                                "   </div>" +
-                                "</div>",
-                        escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()),
+                String pdfBadge = (ev.getPdfUrl() != null && !ev.getPdfUrl().isEmpty())
+                        ? String.format("<a href=\"%s\" target=\"_blank\" class=\"badge-pdf-attached\">📄 Abrir PDF</a>", escapeHtml(ev.getPdfUrl()))
+                        : "<span class=\"badge-pdf-none\">Sin PDF</span>";
+
+                String filaItem = String.format(
+                        "<tr>" +
+                                "   <td><span class=\"tag-semana-cpanel\">📌 %s</span></td>" +
+                                "   <td class=\"col-desc\">%s</td>" +
+                                "   <td style=\"text-align:center;\">%s</td>" +
+                                "   <td style=\"text-align:right;\">" +
+                                "       <div class=\"action-btn-group\">" +
+                                "           <button onclick=\"abrirEditar(this)\" data-id=\"%s\" data-semana=\"%s\" data-descripcion=\"%s\" class=\"btn-edit-action\">Editar</button>" +
+                                "           <form action=\"/eliminar-trabajo\" method=\"POST\" style=\"display:inline;\">" +
+                                "               <input type=\"hidden\" name=\"id\" value=\"%s\">" +
+                                "               <button type=\"submit\" onclick=\"return confirm('¿Seguro que deseas eliminar esta evidencia?');\" class=\"btn-delete-action\">Eliminar</button>" +
+                                "           </form>" +
+                                "       </div>" +
+                                "   </td>" +
+                                "</tr>",
+                        escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()), pdfBadge,
                         escapeHtml(ev.getId()), escapeHtml(ev.getSemana()), escapeHtml(ev.getDescripcion()),
                         escapeHtml(ev.getId())
                 );
-                listaAdmin.append(adminItem);
+                tablaFilasAdmin.append(filaItem);
             }
         }
 
@@ -355,116 +359,197 @@ public class ViewHtml {
                 "<html lang=\"es\">\n" +
                 "<head>\n" +
                 "    <meta charset=\"UTF-8\">\n" +
+                "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
                 "    <title>Panel de Control - Console Admin</title>\n" +
                 "    <style>\n" +
-                "        :root { --bg-main: #060913; --card-bg: #0d1322; --border-color: #172033; --accent-cyan: #00f2fe; --text-white: #ffffff; --text-muted: #94a3b8; }\n" +
+                "        :root {\n" +
+                "            --bg-main: #060913; --card-bg: #0d1322; --inner-card-bg: #080d1a;\n" +
+                "            --border-color: #172033; --accent-cyan: #00f2fe; --text-white: #ffffff; --text-muted: #94a3b8;\n" +
+                "        }\n" +
                 "        * { box-sizing: border-box; margin: 0; padding: 0; }\n" +
                 "        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }\n" +
                 "        @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }\n" +
                 "        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-main); color: var(--text-muted); display: flex; min-height: 100vh; animation: fadeIn 0.4s ease-out; }\n" +
-                "        .sidebar { width: 260px; background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; position: fixed; height: 100vh; }\n" +
-                "        .sidebar-top { display: flex; flex-direction: column; gap: 1.5rem; }\n" +
-                "        .sidebar-brand { color: var(--text-white); font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; }\n" +
-                "        .sidebar-menu { display: flex; flex-direction: column; gap: 0.4rem; }\n" +
-                "        .menu-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 1rem; border-radius: 8px; color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; }\n" +
-                "        .menu-item.active, .menu-item:hover { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.2); }\n" +
-                "        .btn-logout { display: flex; align-items: center; gap: 0.6rem; color: #ff4d4d; text-decoration: none; font-size: 0.9rem; font-weight: 600; padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid rgba(255, 77, 77, 0.2); background: rgba(255, 77, 77, 0.05); }\n" +
-                "        .main-container { margin-left: 260px; flex: 1; padding: 2rem; max-width: calc(100vw - 260px); }\n" +
-                "        .page-title { color: var(--text-white); font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }\n" +
-                "        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }\n" +
-                "        .metric-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.2rem 1.5rem; }\n" +
-                "        .metric-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 0.4rem; }\n" +
-                "        .metric-value { color: var(--text-white); font-size: 1.8rem; font-weight: 700; }\n" +
-                "        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.8rem; margin-bottom: 1.5rem; }\n" +
-                "        .card-title { color: var(--text-white); font-size: 1.1rem; font-weight: 700; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }\n" +
-                "        .form-group { margin-bottom: 1rem; }\n" +
-                "        .form-group label { display: block; color: var(--text-white); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; }\n" +
-                "        .form-control { width: 100%; padding: 0.7rem 1rem; background: #080d1a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-white); outline: none; font-size: 0.9rem; }\n" +
-                "        .btn-submit { background: var(--accent-cyan); color: #000; border: none; padding: 0.7rem 1.4rem; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }\n" +
-                "        .modal { display: none; position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; backdrop-filter: blur(4px); }\n" +
-                "        .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); padding: 2rem; border-radius: 16px; width: 400px; animation: scaleUp 0.3s forwards; }\n" +
-                "        .modal-content h3 { color: var(--text-white); margin-bottom: 1rem; font-size: 1.1rem; }\n" +
+                "        \n" +
+                "        .sidebar {\n" +
+                "            width: 260px; background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex;\n" +
+                "            flex-direction: column; justify-content: space-between; padding: 1.8rem 1.2rem; position: fixed; height: 100vh; z-index: 10;\n" +
+                "        }\n" +
+                "        .sidebar-top { display: flex; flex-direction: column; gap: 2rem; }\n" +
+                "        .sidebar-brand { color: var(--text-white); font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 0.6rem; letter-spacing: -0.5px; }\n" +
+                "        .sidebar-brand span { color: var(--accent-cyan); }\n" +
+                "        .sidebar-menu { display: flex; flex-direction: column; gap: 0.5rem; }\n" +
+                "        .menu-item { display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1rem; border-radius: 10px; color: var(--text-muted); text-decoration: none; font-size: 0.88rem; font-weight: 600; transition: all 0.3s; }\n" +
+                "        .menu-item.active, .menu-item:hover { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.25); }\n" +
+                "        .btn-logout { display: flex; align-items: center; gap: 0.6rem; color: #ff4d4d; text-decoration: none; font-size: 0.88rem; font-weight: 700; padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid rgba(255, 77, 77, 0.25); background: rgba(255, 77, 77, 0.05); transition: all 0.3s; }\n" +
+                "        .btn-logout:hover { background: rgba(255, 77, 77, 0.2); border-color: #ff4d4d; }\n" +
+                "        \n" +
+                "        .main-container { margin-left: 260px; flex: 1; padding: 2.5rem; max-width: calc(100vw - 260px); }\n" +
+                "        .header-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }\n" +
+                "        .page-title { color: var(--text-white); font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; }\n" +
+                "        \n" +
+                "        /* KPI Cards */\n" +
+                "        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; margin-bottom: 2rem; }\n" +
+                "        .metric-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.4rem 1.6rem; position: relative; overflow: hidden; transition: transform 0.3s; }\n" +
+                "        .metric-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent); }\n" +
+                "        .metric-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }\n" +
+                "        .metric-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.8px; }\n" +
+                "        .metric-icon { font-size: 1.2rem; opacity: 0.8; }\n" +
+                "        .metric-value { color: var(--text-white); font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }\n" +
+                "        \n" +
+                "        /* Formulario */\n" +
+                "        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 20px; padding: 2rem; margin-bottom: 2rem; }\n" +
+                "        .card-title { color: var(--text-white); font-size: 1.15rem; font-weight: 700; margin-bottom: 1.4rem; display: flex; align-items: center; gap: 0.6rem; }\n" +
+                "        .form-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1.2rem; margin-bottom: 1.2rem; }\n" +
+                "        .form-group label { display: block; color: var(--text-white); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; }\n" +
+                "        .form-control { width: 100%; padding: 0.75rem 1rem; background: var(--inner-card-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-white); outline: none; font-size: 0.9rem; transition: border-color 0.3s; }\n" +
+                "        .form-control:focus { border-color: var(--accent-cyan); }\n" +
+                "        .btn-submit { background: var(--accent-cyan); color: #060913; border: none; padding: 0.8rem 1.8rem; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 0.9rem; transition: all 0.3s; }\n" +
+                "        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 242, 254, 0.3); }\n" +
+                "        \n" +
+                "        /* Tabla Estructurada */\n" +
+                "        .table-responsive { width: 100%; overflow-x: auto; }\n" +
+                "        .custom-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }\n" +
+                "        .custom-table th { background: var(--inner-card-bg); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.6px; padding: 1rem 1.2rem; border-bottom: 1px solid var(--border-color); }\n" +
+                "        .custom-table td { padding: 1rem 1.2rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; color: var(--text-white); }\n" +
+                "        .custom-table tr:hover td { background: rgba(255,255,255,0.015); }\n" +
+                "        .tag-semana-cpanel { background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.25); padding: 0.3rem 0.7rem; border-radius: 6px; font-weight: 700; font-size: 0.8rem; white-space: nowrap; }\n" +
+                "        .col-desc { max-width: 350px; line-height: 1.4; color: #cbd5e1; }\n" +
+                "        .badge-pdf-attached { display: inline-flex; align-items: center; gap: 0.3rem; background: rgba(0, 242, 254, 0.12); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.3); padding: 0.3rem 0.7rem; border-radius: 6px; text-decoration: none; font-size: 0.78rem; font-weight: 600; transition: all 0.2s; }\n" +
+                "        .badge-pdf-attached:hover { background: rgba(0, 242, 254, 0.25); }\n" +
+                "        .badge-pdf-none { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }\n" +
+                "        .action-btn-group { display: flex; gap: 0.5rem; justify-content: flex-end; }\n" +
+                "        .btn-edit-action { background: rgba(0, 242, 254, 0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 0.4rem 0.9rem; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; transition: all 0.2s; }\n" +
+                "        .btn-edit-action:hover { background: var(--accent-cyan); color: #060913; }\n" +
+                "        .btn-delete-action { background: rgba(255, 77, 77, 0.1); border: 1px solid #ff4d4d; color: #ff4d4d; padding: 0.4rem 0.9rem; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 700; transition: all 0.2s; }\n" +
+                "        .btn-delete-action:hover { background: #ff4d4d; color: #fff; }\n" +
+                "        \n" +
+                "        /* Modal Edición */\n" +
+                "        .modal { display: none; position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(3, 5, 12, 0.85); justify-content: center; align-items: center; backdrop-filter: blur(6px); }\n" +
+                "        .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); padding: 2rem; border-radius: 20px; width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); animation: scaleUp 0.3s forwards; }\n" +
+                "        .modal-content h3 { color: var(--text-white); margin-bottom: 1.2rem; font-size: 1.15rem; font-weight: 700; }\n" +
+                "        \n" +
+                "        @media (max-width: 900px) {\n" +
+                "            .sidebar { width: 80px; padding: 1.5rem 0.8rem; }\n" +
+                "            .sidebar-brand span, .menu-item span, .btn-logout span { display: none; }\n" +
+                "            .main-container { margin-left: 80px; max-width: calc(100vw - 80px); padding: 1.5rem; }\n" +
+                "            .metrics-grid { grid-template-columns: 1fr; }\n" +
+                "            .form-grid { grid-template-columns: 1fr; }\n" +
+                "        }\n" +
                 "    </style>\n" +
                 "</head>\n" +
                 "<body>\n" +
                 "    <aside class=\"sidebar\">\n" +
                 "        <div class=\"sidebar-top\">\n" +
-                "            <div class=\"sidebar-brand\">🛡️ Console Admin</div>\n" +
+                "            <div class=\"sidebar-brand\">🛡️ <span>Console Admin</span></div>\n" +
                 "            <div class=\"sidebar-menu\">\n" +
-                "                <a href=\"/cpanel\" class=\"menu-item active\">📊 Dashboard</a>\n" +
-                "                <a href=\"/\" class=\"menu-item\">🌐 Ver Portafolio</a>\n" +
+                "                <a href=\"/cpanel\" class=\"menu-item active\">📊 <span>Dashboard</span></a>\n" +
+                "                <a href=\"/\" class=\"menu-item\">🌐 <span>Ver Portafolio</span></a>\n" +
                 "            </div>\n" +
                 "        </div>\n" +
                 "        <div>\n" +
-                "            <a href=\"/logout\" class=\"btn-logout\">🚪 Cerrar Sesión</a>\n" +
+                "            <a href=\"/logout\" class=\"btn-logout\">🚪 <span>Cerrar Sesión</span></a>\n" +
                 "        </div>\n" +
                 "    </aside>\n" +
                 "\n" +
                 "    <div class=\"main-container\">\n" +
-                "        <h1 class=\"page-title\">Panel de Control</h1>\n" +
+                "        <div class=\"header-title-bar\">\n" +
+                "            <h1 class=\"page-title\">Panel de Control</h1>\n" +
+                "            <a href=\"/\" target=\"_blank\" class=\"btn-edit-action\" style=\"text-decoration: none;\">↗️ Vista Previa Pública</a>\n" +
+                "        </div>\n" +
                 "        \n" +
+                "        <!-- Métricas Principales -->\n" +
                 "        <div class=\"metrics-grid\">\n" +
                 "            <div class=\"metric-card\">\n" +
-                "                <div class=\"metric-title\">Total Semanas</div>\n" +
+                "                <div class=\"metric-header\">\n" +
+                "                    <span class=\"metric-title\">Total Semanas</span>\n" +
+                "                    <span class=\"metric-icon\">📅</span>\n" +
+                "                </div>\n" +
                 "                <div class=\"metric-value\">" + totalSemanas + "</div>\n" +
                 "            </div>\n" +
                 "            <div class=\"metric-card\">\n" +
-                "                <div class=\"metric-title\">Semanas Completadas</div>\n" +
+                "                <div class=\"metric-header\">\n" +
+                "                    <span class=\"metric-title\">Semanas Completadas</span>\n" +
+                "                    <span class=\"metric-icon\">✅</span>\n" +
+                "                </div>\n" +
                 "                <div class=\"metric-value\">" + totalSemanas + "</div>\n" +
                 "            </div>\n" +
                 "            <div class=\"metric-card\">\n" +
-                "                <div class=\"metric-title\">Total Tareas Subidas</div>\n" +
+                "                <div class=\"metric-header\">\n" +
+                "                    <span class=\"metric-title\">Total Tareas Subidas</span>\n" +
+                "                    <span class=\"metric-icon\">📄</span>\n" +
+                "                </div>\n" +
                 "                <div class=\"metric-value\">" + totalTareas + "</div>\n" +
                 "            </div>\n" +
                 "        </div>\n" +
                 "\n" +
+                "        <!-- Formulario -->\n" +
                 "        <div class=\"card\">\n" +
                 "            <div class=\"card-title\">📝 Registrar Tarea Académica</div>\n" +
                 "            <form action=\"/subir-trabajo\" method=\"POST\" enctype=\"multipart/form-data\">\n" +
-                "                <div class=\"form-group\">\n" +
-                "                    <label>Título / Semana Destino:</label>\n" +
-                "                    <input type=\"text\" name=\"semana\" class=\"form-control\" placeholder=\"Ej. Semana 3\" required>\n" +
+                "                <div class=\"form-grid\">\n" +
+                "                    <div class=\"form-group\">\n" +
+                "                        <label>Título / Semana Destino:</label>\n" +
+                "                        <input type=\"text\" name=\"semana\" class=\"form-control\" placeholder=\"Ej. Semana 3\" required>\n" +
+                "                    </div>\n" +
+                "                    <div class=\"form-group\">\n" +
+                "                        <label>Descripción del Trabajo:</label>\n" +
+                "                        <input type=\"text\" name=\"descripcion\" class=\"form-control\" placeholder=\"Ej. Infografía interactiva...\" required>\n" +
+                "                    </div>\n" +
                 "                </div>\n" +
-                "                <div class=\"form-group\">\n" +
-                "                    <label>Descripción del Trabajo:</label>\n" +
-                "                    <input type=\"text\" name=\"descripcion\" class=\"form-control\" placeholder=\"Ej. Infografía interactiva...\" required>\n" +
-                "                </div>\n" +
-                "                <div class=\"form-group\">\n" +
+                "                <div class=\"form-group\" style=\"margin-bottom: 1.5rem;\">\n" +
                 "                    <label>Archivo PDF (Opcional):</label>\n" +
                 "                    <input type=\"file\" name=\"pdfFile\" accept=\"application/pdf\" class=\"form-control\">\n" +
                 "                </div>\n" +
-                "                <button type=\"submit\" class=\"btn-submit\">Crear y Publicar</button>\n" +
+                "                <button type=\"submit\" class=\"btn-submit\">+ Crear y Publicar Tarea</button>\n" +
                 "            </form>\n" +
                 "        </div>\n" +
                 "\n" +
+                "        <!-- Tabla Administradora -->\n" +
                 "        <div class=\"card\">\n" +
-                "            <div class=\"card-title\">📂 Administrar Semanas Publicadas</div>\n" +
-                "            <div>\n" +
-                "                " + listaAdmin.toString() + "\n" +
+                "            <div style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.2rem;\">\n" +
+                "                <div class=\"card-title\" style=\"margin-bottom:0;\">📂 Administrar Evidencias Publicadas</div>\n" +
+                "                <input type=\"text\" id=\"cpanelSearch\" placeholder=\"🔍 Filtrar por semana o descripción...\" onkeyup=\"filtrarCPanel()\" class=\"form-control\" style=\"width: 280px; padding: 0.5rem 0.9rem; font-size: 0.82rem;\">\n" +
+                "            </div>\n" +
+                "            <div class=\"table-responsive\">\n" +
+                "                <table class=\"custom-table\">\n" +
+                "                    <thead>\n" +
+                "                        <tr>\n" +
+                "                            <th>Semana</th>\n" +
+                "                            <th>Descripción</th>\n" +
+                "                            <th style=\"text-align:center;\">Documento PDF</th>\n" +
+                "                            <th style=\"text-align:right;\">Acciones</th>\n" +
+                "                        </tr>\n" +
+                "                    </thead>\n" +
+                "                    <tbody id=\"tablaAdminBody\">\n" +
+                "                        " + tablaFilasAdmin.toString() + "\n" +
+                "                    </tbody>\n" +
+                "                </table>\n" +
                 "            </div>\n" +
                 "        </div>\n" +
                 "    </div>\n" +
                 "\n" +
+                "    <!-- Modal Editar -->\n" +
                 "    <div id=\"editModal\" class=\"modal\">\n" +
                 "        <div class=\"modal-content\">\n" +
-                "            <h3>Editar Semana / Trabajo</h3>\n" +
+                "            <h3>✏️ Editar Semana / Trabajo</h3>\n" +
                 "            <form action=\"/editar-trabajo\" method=\"POST\" enctype=\"multipart/form-data\">\n" +
                 "                <input type=\"hidden\" name=\"id\" id=\"edit-id\">\n" +
-                "                <div class=\"form-group\">\n" +
+                "                <div class=\"form-group\" style=\"margin-bottom: 1rem;\">\n" +
                 "                    <label>Título / Semana:</label>\n" +
                 "                    <input type=\"text\" name=\"semana\" id=\"edit-semana\" class=\"form-control\" required>\n" +
                 "                </div>\n" +
-                "                <div class=\"form-group\">\n" +
+                "                <div class=\"form-group\" style=\"margin-bottom: 1rem;\">\n" +
                 "                    <label>Descripción:</label>\n" +
                 "                    <input type=\"text\" name=\"descripcion\" id=\"edit-descripcion\" class=\"form-control\" required>\n" +
                 "                </div>\n" +
-                "                <div class=\"form-group\">\n" +
+                "                <div class=\"form-group\" style=\"margin-bottom: 1.5rem;\">\n" +
                 "                    <label>Reemplazar o Adjuntar PDF:</label>\n" +
                 "                    <input type=\"file\" name=\"pdfFile\" accept=\"application/pdf\" class=\"form-control\">\n" +
                 "                </div>\n" +
-                "                <button type=\"submit\" class=\"btn-submit\" style=\"width: 100%; margin-top: 0.5rem;\">Guardar Cambios</button>\n" +
+                "                <button type=\"submit\" class=\"btn-submit\" style=\"width: 100%;\">Guardar Cambios</button>\n" +
                 "            </form>\n" +
-                "            <button onclick=\"cerrarEditar()\" style=\"margin-top: 0.8rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; width:100%;\">Cancelar</button>\n" +
+                "            <button onclick=\"cerrarEditar()\" style=\"margin-top: 0.8rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.82rem; width:100%; text-align:center;\">Cancelar</button>\n" +
                 "        </div>\n" +
                 "    </div>\n" +
                 "\n" +
@@ -476,6 +561,14 @@ public class ViewHtml {
                 "            document.getElementById('editModal').style.display = 'flex';\n" +
                 "        }\n" +
                 "        function cerrarEditar() { document.getElementById('editModal').style.display = 'none'; }\n" +
+                "        function filtrarCPanel() {\n" +
+                "            let input = document.getElementById('cpanelSearch').value.toLowerCase();\n" +
+                "            let rows = document.querySelectorAll('#tablaAdminBody tr');\n" +
+                "            rows.forEach(row => {\n" +
+                "                let texto = row.textContent.toLowerCase();\n" +
+                "                row.style.display = texto.includes(input) ? \"\" : \"none\";\n" +
+                "            });\n" +
+                "        }\n" +
                 "    </script>\n" +
                 "</body>\n" +
                 "</html>";
