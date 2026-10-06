@@ -16,7 +16,7 @@ public class Main {
         try {
             // 1. Inicializar base de datos
             System.out.println("Inicializando la base de datos...");
-            Database.inicializarBD();
+            Database.init();
 
             // 2. Crear el servidor HTTP
             HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
