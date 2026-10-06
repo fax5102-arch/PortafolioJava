@@ -14,7 +14,15 @@ public class ViewHtml {
             evidenciasHtml.append("<p style=\"font-size: 0.9rem; color: var(--text-muted); text-align: center; padding: 2rem; grid-column: 1 / -1;\">No hay evidencias publicadas aún.</p>");
         } else {
             Map<String, List<Evidencia>> evidenciasPorSemana = listaEvidencias.stream()
-                    .collect(Collectors.groupingBy(Evidencia::getSemana, LinkedHashMap::new, Collectors.toList()));
+                    .collect(Collectors.groupingBy(
+                            Evidencia::getSemana,
+                            () -> new java.util.TreeMap<>((s1, s2) -> {
+                                int num1 = Integer.parseInt(s1.replaceAll("\\D+", "0"));
+                                int num2 = Integer.parseInt(s2.replaceAll("\\D+", "0"));
+                                return Integer.compare(num1, num2);
+                            }),
+                            Collectors.toList()
+                    ));
 
             for (Map.Entry<String, List<Evidencia>> entry : evidenciasPorSemana.entrySet()) {
                 String semana = entry.getKey();

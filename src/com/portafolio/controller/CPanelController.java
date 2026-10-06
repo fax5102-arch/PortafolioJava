@@ -18,7 +18,8 @@ public class CPanelController implements HttpHandler {
 
     public static List<Evidencia> obtenerEvidencias() {
         List<Evidencia> lista = new ArrayList<>();
-        String sql = "SELECT id, semana, descripcion, pdf_url FROM evidencias ORDER BY id DESC";
+        // Ordenamiento por semana ascendente y luego por id
+        String sql = "SELECT id, semana, descripcion, pdf_url FROM evidencias ORDER BY semana ASC, id ASC";
         try (Connection conn = Database.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -211,6 +212,7 @@ public class CPanelController implements HttpHandler {
             exchange.close();
         }
     }
+
     private static byte[] readRequestBody(HttpExchange exchange) throws IOException {
         try (InputStream is = exchange.getRequestBody(); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[4096];
