@@ -2,7 +2,8 @@ package com.portafolio.controller;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.portafolio.config.Database;
+import com.portafolio.controller.config.Database;
+import com.portafolio.controller.config.SupabaseStorageService;
 import com.portafolio.model.Evidencia;
 import com.portafolio.view.ViewHtml;
 
@@ -70,11 +71,16 @@ public class CPanelController implements HttpHandler {
 
                     if (hasFileAttached(data, boundary, "pdfFile")) {
                         String filename = "trabajo_" + System.currentTimeMillis() + ".pdf";
-                        File pubDir = new File("public");
-                        if (!pubDir.exists()) pubDir.mkdirs();
+                        File tempFile = File.createTempFile("upload_", ".pdf");
+                        saveFileField(data, boundary, "pdfFile", tempFile.getAbsolutePath());
 
-                        saveFileField(data, boundary, "pdfFile", "public/" + filename);
-                        pdfUrl = "/public/" + filename;
+                        try {
+                            pdfUrl = SupabaseStorageService.subirPDF(tempFile, filename);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            if (tempFile.exists()) tempFile.delete();
+                        }
                     }
 
                     if (semana != null && !semana.trim().isEmpty()) {
@@ -137,16 +143,17 @@ public class CPanelController implements HttpHandler {
                         String finalPdfUrl = pdfUrlActual;
 
                         if (hasNewFile) {
-                            if (pdfUrlActual != null && pdfUrlActual.startsWith("/public/")) {
-                                File oldFile = new File("public/" + pdfUrlActual.replace("/public/", ""));
-                                if (oldFile.exists()) oldFile.delete();
-                            }
                             String filename = "trabajo_" + System.currentTimeMillis() + ".pdf";
-                            File pubDir = new File("public");
-                            if (!pubDir.exists()) pubDir.mkdirs();
+                            File tempFile = File.createTempFile("upload_edit_", ".pdf");
+                            saveFileField(data, boundary, "pdfFile", tempFile.getAbsolutePath());
 
-                            saveFileField(data, boundary, "pdfFile", "public/" + filename);
-                            finalPdfUrl = "/public/" + filename;
+                            try {
+                                finalPdfUrl = SupabaseStorageService.subirPDF(tempFile, filename);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            } finally {
+                                if (tempFile.exists()) tempFile.delete();
+                            }
                         }
 
                         String updateSql = "UPDATE evidencias SET semana = ?, descripcion = ?, pdf_url = ? WHERE id = ?";
@@ -185,22 +192,8 @@ public class CPanelController implements HttpHandler {
                 Map<String, String> params = parseSimpleFormData(exchange);
                 String idStr = params.get("id");
 
-                if (idStr != null) {
-                    int id = Integer.parseInt(idStr);
-                    String selectSql = "SELECT pdf_url FROM evidencias WHERE id = ?";
-                    try (Connection conn = Database.getConnection();
-                         PreparedStatement pstmt = conn.prepareStatement(selectSql)) {
-                        pstmt.setInt(1, id);
-                        try (ResultSet rs = pstmt.executeQuery()) {
-                            if (rs.next()) {
-                                String pdfUrl = rs.getString("pdf_url");
-                                if (pdfUrl != null && pdfUrl.startsWith("/public/")) {
-                                    File fileToDelete = new File("public/" + pdfUrl.replace("/public/", ""));
-                                    if (fileToDelete.exists()) fileToDelete.delete();
-                                }
-                            }
-                        }
-                    } catch (SQLException e) { e.printStackTrace(); }
+                if (idStr != null && !idStr.trim().isEmpty()) {
+                    int id = Integer.parseInt(idStr.trim());
 
                     String deleteSql = "DELETE FROM evidencias WHERE id = ?";
                     try (Connection conn = Database.getConnection();
@@ -218,7 +211,6 @@ public class CPanelController implements HttpHandler {
             exchange.close();
         }
     }
-
     private static byte[] readRequestBody(HttpExchange exchange) throws IOException {
         try (InputStream is = exchange.getRequestBody(); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[4096];

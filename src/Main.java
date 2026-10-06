@@ -1,15 +1,9 @@
 package com.portafolio;
 
-import com.portafolio.config.Database;
-import com.portafolio.controller.AuthController;
-import com.portafolio.controller.CPanelController;
-import com.portafolio.controller.PortafolioController;
-import com.portafolio.controller.StaticController;
-import com.portafolio.controller.StaticFileHandler;
-
 import com.sun.net.httpserver.HttpServer;
+import com.portafolio.controller.*;
+import com.portafolio.controller.config.Database;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -20,15 +14,9 @@ public class Main {
 
     public static void main(String[] args) {
         try {
-            // 1. Inicializar conexión a la base de datos
+            // 1. Inicializar base de datos
             System.out.println("Inicializando la base de datos...");
-            try (Connection conn = Database.getConnection()) {
-                if (conn != null) {
-                    System.out.println("¡Base de datos conectada e inicializada con éxito!");
-                }
-            } catch (SQLException e) {
-                System.err.println("Error al conectar con la base de datos: " + e.getMessage());
-            }
+            Database.inicializarBD();
 
             // 2. Crear el servidor HTTP
             HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
@@ -54,13 +42,9 @@ public class Main {
             // 7. Iniciar servidor
             server.setExecutor(null);
             server.start();
+            System.out.println("Servidor iniciado en http://localhost:" + PORT);
 
-            System.out.println("==================================================");
-            System.out.println("Servidor corriendo en: http://localhost:" + PORT + "/");
-            System.out.println("==================================================");
-
-        } catch (IOException e) {
-            System.err.println("Error al iniciar el servidor HTTP: " + e.getMessage());
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
